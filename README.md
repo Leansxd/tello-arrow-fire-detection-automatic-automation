@@ -1,72 +1,98 @@
-# Tello DeepSync: Autonomous AI Drone System
 
-Tello DeepSync is a sophisticated autonomous flight system for the DJI Tello drone, powered by YOLOv8 object detection. The system enables the drone to navigate complex environments, recognize directional signs, detect hazards (fire/smoke), and perform maneuvers autonomously.
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" />
+  <img src="https://img.shields.io/badge/YOLOv8-000000?style=for-the-badge&logo=ultralytics&logoColor=00FFFF" />
+  <img src="https://img.shields.io/badge/OpenCV-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white" />
+</div>
 
-## 🚀 Key Features
 
-- **Autonomous Navigation**: Intelligent logic for searching, tracking, and executing commands based on visual cues.
-- **YOLOv8 Integration**: High-speed object detection for directional arrows, maneuver signs, and fire/smoke detection.
-- **Advanced HUD**: A professional fighter-pilot style Heads-Up Display showing:
-    - Real-time Telemetry (Altitude, Speed, Temperature)
-    - Battery Status & Failsafe Alerts
-    - AI Processing FPS & Target Lock Status
-    - Live TOF (Time of Flight) Sensor Data
-- **Multi-Threaded Architecture**: Separate threads for AI processing, telemetry, and flight logic to ensure smooth performance.
-- **Robust Control Logic**: 
-    - Automatic centering and approach based on object size and TOF data.
-    - Mathematical orientation correction for arrow signs using OpenCV image processing.
-- **Safety Systems**: 
-    - Critical battery failsafe (automatic landing at <10%).
-    - Connection monitoring and recovery.
-    - Temperature-based warnings.
+# 🛰️ Tello DeepSync: Otonom Yapay Zeka Drone Sistemi
 
-## 🛠 Project Structure
+Tello DeepSync, DJI Tello dronları için geliştirilmiş, **YOLOv8** nesne algılama motoruyla güçlendirilmiş gelişmiş bir otonom uçuş sistemidir. Sistem, karmaşık ortamlarda navigasyon yapabilir, yön işaretlerini tanıyabilir, tehlikeleri (yangın/duman) tespit edebilir ve manevraları tamamen otonom olarak gerçekleştirebilir.
 
-- `fly.py`: The core application containing the autonomous logic, AI worker, and HUD system.
-- `train.py`: Script to train the YOLOv8 model for fire/smoke or custom object detection.
-- `export_onnx.py`: Utility to export trained `.pt` models to ONNX format for optimization.
-- `data.yaml`: YOLOv8 dataset configuration file.
-- `best.pt` / `fire.pt`: Pre-trained YOLOv8 weights for navigation and hazard detection.
+---
 
-## 📋 Requirements
+## ✨ Temel Özellikler
 
-- Python 3.8+
-- OpenCV
-- Ultralytics (YOLOv8)
-- DJITelloPy
-- NumPy
+- **🤖 Otonom Navigasyon**: Görsel ipuçlarına dayalı arama, takip ve komut yürütme mantığı.
+- **🎯 YOLOv8 Entegrasyonu**: Yön okları, manevra işaretleri ve yangın/duman tespiti için yüksek hızlı nesne algılama.
+- **🖥️ Gelişmiş HUD (Heads-Up Display)**: Profesyonel kokpit tarzı arayüz:
+    - Gerçek zamanlı Telemetri (İrtifa, Hız, Sıcaklık)
+    - Pil Durumu ve Failsafe Uyarıları
+    - Yapay Zeka FPS ve Hedef Kilitleme Durumu
+    - Canlı TOF (Time of Flight) Sensör Verileri
+- **🧵 Çok Kanallı Mimari**: AI işleme, telemetri ve uçuş mantığı için optimize edilmiş ayrı iş parçacıkları (threading).
+- **🛡️ Güvenlik Sistemleri**: Kritik pil seviyesi koruması (<%10 otomatik iniş) ve sıcaklık uyarıları.
 
-Install dependencies via pip:
+---
+
+## 📊 Sistem Akış Diyagramı
+
+Aşağıdaki diyagram, sistemin otonom karar verme sürecini göstermektedir:
+
+```mermaid
+graph TD
+    A[Sistem Başlatıldı] --> B{Hedef Tespit Edildi mi?}
+    B -- Hayır --> C[Arama Modu: Dönüş ve Tarama]
+    C --> B
+    B -- Evet --> D[Hedef Kilitleme & Ortalama]
+    D --> E{Mesafe Uygun mu?}
+    E -- Hayır --> F[Yaklaşma: TOF ve Genişlik Kontrolü]
+    F --> D
+    E -- Evet --> G[Komut Yürütme: Manevra/Dönüş/İniş]
+    G --> H[Gibi Görev Tamamlandı]
+    H --> B
+    
+    subgraph Güvenlik Katmanı
+    I[Yangın/Duman Tespiti] --> J{Tehlike Var mı?}
+    J -- Evet --> K[Güvenli Mesafeyi Koru & Uyarı Ver]
+    end
+```
+
+---
+
+## 🛠️ Teknoloji Yığını
+
+- **Dil:** Python 3.8+
+- **Görüntü İşleme:** OpenCV, NumPy
+- **Yapay Zeka:** Ultralytics YOLOv8
+- **Drone SDK:** DJITelloPy
+- **Görselleştirme:** Vite & Three.js (Gelecek Planı/Dashboard)
+
+---
+
+## 🚀 Kurulum
+
+Bağımlılıkları pip aracılığıyla yükleyin:
+
 ```bash
 pip install opencv-python ultralytics djitellopy numpy
 ```
 
-## 🎮 How to Use
+## 🎮 Kullanım Kılavuzu
 
-1. **Connect**: Power on your DJI Tello and connect your PC to its Wi-Fi network.
-2. **Run**: Execute the main script:
+1. **Bağlantı**: DJI Tello'yu açın ve bilgisayarınızı dronun Wi-Fi ağına bağlayın.
+2. **Çalıştır**: Ana betiği başlatın:
    ```bash
    python fly.py
    ```
-3. **Controls**:
-   - `T`: Takeoff (Automatic search mode begins)
-   - `L`: Land
-   - `Q`: Quit and Emergency Shutdown
-   - `C`: Reconnect to Drone
-
-## 🧠 Autonomous Logic Flow
-
-1. **Searching**: The drone moves forward or rotates to find a recognized target.
-2. **Tracking**: Once a target (e.g., "up arrow") is detected, the drone centers it in its field of view.
-3. **Approaching**: The drone moves closer to the target until it reaches the "trigger width" or ideal TOF distance.
-4. **Execution**: The drone performs the command associated with the target (Rotate, Move Up/Down, Flip, etc.).
-5. **Hazard Detection**: If fire or smoke is detected, the drone prioritizes safety, issues a warning, and maintains a safe distance.
-
-## 🛡️ Safety & Optimization
-
-- **Socket Protection**: The system manages socket communication to prevent "WinError 6" and other common Tello SDK lockups.
-- **Spam Filtering**: Suppresses redundant logging to maintain console clarity.
-- **Morphological Processing**: Uses OpenCV to verify arrow directions, preventing AI misclassification in low-light or skewed angles.
+3. **Kontroller**:
+   - `T`: Kalkış (Otomatik arama modu başlar)
+   - `L`: İniş
+   - `Q`: Çıkış ve Acil Durum Kapatma
+   - `C`: Drona Yeniden Bağlan
 
 ---
-*Developed for advanced autonomous drone research and search & rescue simulation.*
+
+## 🧠 Otonom Mantık Akışı
+
+1. **Arama**: Drone, tanınan bir hedef bulmak için ileri hareket eder veya döner.
+2. **Takip**: Bir hedef (örneğin "yukarı ok") algılandığında, drone onu görüş alanının merkezine odaklar.
+3. **Yaklaşma**: Drone, "tetikleme genişliğine" veya ideal TOF mesafesine ulaşana kadar hedefe yaklaşır.
+4. **Yürütme**: Drone, hedefle ilişkili komutu (Dönme, Yukarı/Aşağı, Takla vb.) gerçekleştirir.
+5. **Tehlike Algılama**: Yangın veya duman tespit edilirse, drone güvenliğe öncelik verir, uyarı verir ve mesafesini korur.
+
+---
+
+<div align="center">
+  <sub>Gelişmiş otonom drone araştırmaları ve arama-kurtarma simülasyonları için geliştirilmiştir.</sub>
+</div>
