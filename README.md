@@ -6,8 +6,6 @@
 [![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![YOLOv8](https://img.shields.io/badge/YOLOv8-Real--time%20Detection-00FFFF?style=for-the-badge&logo=ultralytics&logoColor=black)](https://ultralytics.com)
 [![OpenCV](https://img.shields.io/badge/OpenCV-Computer%20Vision-5C3EE8?style=for-the-badge&logo=opencv&logoColor=white)](https://opencv.org/)
-[![Vite](https://img.shields.io/badge/Vite-Dashboard-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Three.js](https://img.shields.io/badge/Three.js-3D%20Vis-000000?style=for-the-badge&logo=threedotjs&logoColor=white)](https://threejs.org/)
 
 ---
 
