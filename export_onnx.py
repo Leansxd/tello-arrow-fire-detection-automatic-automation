@@ -5,7 +5,6 @@ def export_model(path):
     if os.path.exists(path):
         print(f"Exporting {path}...")
         model = YOLO(path)
-        # imgsz should match what we use in fly.py or just use 480/320 as planned
         onnx_path = model.export(format="onnx", imgsz=480, simplify=True)
         print(f"Exported to {onnx_path}")
     else:

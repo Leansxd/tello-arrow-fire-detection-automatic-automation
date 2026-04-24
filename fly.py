@@ -9,59 +9,42 @@ from collections import deque
 from djitellopy import Tello
 from ultralytics import YOLO
 
-# ==========================================
-# 🛑 DJITELLOPY SPAM LOG UYARILARINI GIZLE BÖLÜMÜ
-# ==========================================
-# Surekli EXT tof? ve command atarak console'u kirletmemesi icin
 logging.getLogger('djitellopy').setLevel(logging.ERROR)
 
-# ==========================================
-# ⚙️ KONFİGÜRASYON SİSTEMİ
-# ==========================================
 class DroneConfig:
-    # --- 1. HAREKET AYARLARI ---
     SAGA_SOLA_MESAFE    = 40
     ILERI_GITME_MESAFE  = 30
     GERI_GITME_MESAFE   = 50
-    HEDEF_IDEAL_MESAFE_CM = 70  # Dot matrix TOF sensorune gore yaklasilacak ideal toleransli mesafe
+    HEDEF_IDEAL_MESAFE_CM = 70
     YUKARI_GITME_MESAFE = 30
     ASAGI_GITME_MESAFE  = 40
     DONUS_ACISI         = 90
     
-    # --- 2. GUVENLIK VE BATARYA ---
-    BATTERY_FAILSAFE    = 10      # %10 altinda otomatik inis
+    BATTERY_FAILSAFE    = 10
     
-    # --- 3. EKRAN AYARLARI ---
     EKRAN_GENISLIK  = 960
     EKRAN_YUKSEKLIK = 720
     
-    # --- 3. AI VE HIZ AYARLARI ---
-    AI_GUVEN_ESIGI    = 0.45    # Tabelalari okumasi icin en optimum esik
-    FIRE_CONF         = 0.55    # Ates icin yuksek dogruluk (yanlis algilamayi onler)
-    SMOKE_CONF        = 0.40    # Duman saydam oldugu icin dusuk esikti ancak hayalet algi yapmamasi icin dengelendi
-    AI_IMG_SIZE       = 640     # [KRITIK HATA COZUMU] Modeller 640 ile egitildigi icin dusuruldugunde "Yukari" okunu "SOL" sanmasini engeller
-    ARAMA_HIZI        = 22      # Hiçbir şey görmediğinde ileri gitme hızı
-    TARAMA_HIZI       = 25      # Etrafa bakma hızı
-    TARAMA_BEKLEME    = 2.5     # Kaç saniye görmezse aramaya başlasın
-    TETIKLEME_GENISLIK = 320    # Kutu bu genişliğe (piksel) ulaştığında komutu uygula (Yakınlık eşiği)
-    MAX_YAKLASMA_HIZI = 18      # Yaklaşırken maksimum ileri hızı
-    MIN_YAKLASMA_HIZI = 8       # Yakınlaştığında minimum koruma hızı
+    AI_GUVEN_ESIGI    = 0.45
+    FIRE_CONF         = 0.55
+    SMOKE_CONF        = 0.40
+    AI_IMG_SIZE       = 640
+    ARAMA_HIZI        = 22
+    TARAMA_HIZI       = 25
+    TARAMA_BEKLEME    = 2.5
+    TETIKLEME_GENISLIK = 320
+    MAX_YAKLASMA_HIZI = 18
+    MIN_YAKLASMA_HIZI = 8
     
-    # --- 4. STABİLİZASYON ---
     YATAY_HASSASIYET = 220
     DIKEY_HASSASIYET = 230
     
-    # --- 5. MESAFE ---
     MIN_KUTU_GENISLIK = 0
     MAX_KUTU_GENISLIK = 900
     
-    # --- MERKEZ ---
     MERKEZ_X = EKRAN_GENISLIK // 2
     MERKEZ_Y = EKRAN_YUKSEKLIK // 2
 
-# ==========================================
-# 🧠 ASENKRON AI İŞÇİSİ (AI WORKER)
-# ==========================================
 class AIWorker(threading.Thread):
     def __init__(self, main_path="best.pt", fire_path="fire.pt"):
         super().__init__()
@@ -115,13 +98,11 @@ class AIWorker(threading.Thread):
             
             img = cv2.resize(img, (960, 720))
             
-            # Tahmin
             res = self.model.predict(img, verbose=False, conf=DroneConfig.AI_GUVEN_ESIGI, imgsz=DroneConfig.AI_IMG_SIZE)
             
             fires = None
             if self.fire_model and frame_count % 5 == 0:
                 fires = []
-                # Predict cagirirken en dusuk esik olan SMOKE_CONF'u (0.15) baz al
                 f_res = self.fire_model.predict(img, verbose=False, conf=DroneConfig.SMOKE_CONF, imgsz=640)
                 for fr in f_res:
                     for b in fr.boxes:
@@ -145,9 +126,6 @@ class AIWorker(threading.Thread):
                 frame_count = 0
                 last_time = time.time()
 
-# ==========================================
-# 🎨 HUD VE GÖRSELLEŞTİRME SİSTEMİ
-# ==========================================
 class HUDSystem:
     @staticmethod
     def draw_rounded_rect(img, pt1, pt2, color, thickness, r):
@@ -170,15 +148,12 @@ class HUDSystem:
     @staticmethod
     def draw_fighter_hud(frame, config, ds, ai_fps, ai_loaded):
         cx, cy = 480, 360
-        # Crosshair
         cv2.circle(frame, (cx, cy), 15, (0, 255, 0), 1)
-        # Paneller
         overlay = frame.copy()
         HUDSystem.draw_rounded_rect(overlay, (12, 12), (240, 160), (0, 0, 0), -1, 10)
         HUDSystem.draw_rounded_rect(overlay, (750, 12), (948, 160), (0, 0, 0), -1, 10)
         cv2.addWeighted(overlay, 0.3, frame, 0.7, 0, frame)
 
-        # Metinler
         font, sf, white, neon = cv2.FONT_HERSHEY_SIMPLEX, 0.4, (230, 230, 230), (0, 255, 0)
         cv2.putText(frame, f"STATUS: {ds['msg']}", (22, 35), cv2.FONT_HERSHEY_DUPLEX, 0.45, (0, 255, 255), 1)
         
@@ -192,14 +167,12 @@ class HUDSystem:
         cv2.putText(frame, f"FPS: {ai_fps}", (22, 120), font, sf, (0, 200, 255), 1)
         cv2.putText(frame, f"TARGET: {str(ds['target']).upper()}", (22, 145), font, sf, (255, 165, 0), 1)
 
-        # Dev Target Gostergesi 
         target_name = str(ds['target']).upper()
         if target_name != "NONE":
             t_color = (0, 255, 0) if "LOCK" in ds['msg'] else (0, 200, 255)
             cv2.putText(frame, "TARGET ACQUIRED", (380, 650), font, 0.6, t_color, 1)
             cv2.putText(frame, target_name, (360, 690), cv2.FONT_HERSHEY_DUPLEX, 1.2, t_color, 2)
 
-        # Sağ Panel
         cv2.putText(frame, "TELEMETRY", (760, 35), cv2.FONT_HERSHEY_DUPLEX, 0.45, white, 1)
         cv2.putText(frame, f"VX: {ds['vx']}", (760, 60), font, sf, white, 1)
         cv2.putText(frame, f"VY: {ds['vy']}", (760, 85), font, sf, white, 1)
@@ -211,13 +184,10 @@ class HUDSystem:
     @staticmethod
     def draw_fire_warning(frame, warning_type="FIRE"):
         h, w = frame.shape[:2]
-        color = (0, 0, 200) if warning_type == "FIRE" else (0, 140, 255) # Red for Fire, Orange for Smoke
+        color = (0, 0, 200) if warning_type == "FIRE" else (0, 140, 255)
         cv2.rectangle(frame, (w//2-180, h//2-40), (w//2+180, h//2+40), color, -1)
         cv2.putText(frame, f"!!! {warning_type} !!!", (w//2-150, h//2+15), cv2.FONT_HERSHEY_DUPLEX, 1.2, (255, 255, 255), 2)
 
-# ==========================================
-# 🚀 ANA OTONOM UYGULAMA
-# ==========================================
 class TelloAutonomousApp:
     def __init__(self):
         self.cfg = DroneConfig()
@@ -228,11 +198,11 @@ class TelloAutonomousApp:
         self.is_busy = False
         self.is_connected = False
         self.is_stream_ok = False
-        self.is_moving = False # [WINERROR 6 FIX] Hareket aninda TOF sorgusunu keserek soket kilitlenmesini engeller.
+        self.is_moving = False
         
         self.frame_read = None
         self.bbox_history = deque(maxlen=3)
-        self.class_history = deque(maxlen=3) # [DONMA COZUMU] Ekranda sabit kalan yesil kutuyu 3 karede kalici iptal eder
+        self.class_history = deque(maxlen=3)
         self.last_seen_time = time.time()
         self.wait_start_time = 0
         self.cmd_lock = threading.Lock()
@@ -254,7 +224,6 @@ class TelloAutonomousApp:
         while self.running:
             if self.is_connected and self.is_flying and not self.is_busy and not self.is_moving:
                 try:
-                    # [SOKET ÇAKIŞMASI FIX] Thread lock
                     with self.cmd_lock:
                         tof_str = self.tello.send_read_command("EXT tof?")
                     if tof_str and "error" not in tof_str.lower() and "ok" not in tof_str.lower():
@@ -265,7 +234,7 @@ class TelloAutonomousApp:
                                 with self.data_lock: self.telemetry['ext_tof'] = val
                 except Exception as e: 
                     pass
-            time.sleep(1.0) # 1 Saniye Spam siniri
+            time.sleep(1.0)
 
     def connection_worker(self):
         while self.running:
@@ -293,18 +262,15 @@ class TelloAutonomousApp:
             time.sleep(0.5)
 
     def get_corrected_direction(self, frame, xyxy, name):
-        # [AKILLI OPENCV KONTROLU] Modelin kafa karisikligini önlemek icin matematiksel alan hesabi.
         if name not in ['sol', 'sag', 'soladon', 'sagadon']: return name
         try:
             x1, y1, x2, y2 = map(int, xyxy)
             W, H = x2 - x1, y2 - y1
             
-            # Sadece oku ayirmak icin dis 20% boslugu(cerceveyi) kirp
             px, py = int(W * 0.20), int(H * 0.20)
             crop = frame[max(0, y1+py):min(720, y2-py), max(0, x1+px):min(960, x2-px)]
             if crop.size < 50: return name
             
-            # NORMAL THRESHOLD: Siyah zemin ustundeki BEYAZ ok, bembeyaz (255) kalacaktir.
             _, mask = cv2.threshold(crop, 127, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             
             kernel = np.ones((5,5), np.uint8)
@@ -312,23 +278,17 @@ class TelloAutonomousApp:
             h, w = mask.shape
             
             if 'don' in name:
-                # SOLA DÖN ve SAĞA DÖN Ayrımı:
-                # Okun en alt yuzde 25'lik kesitinde sadece o 'dikey ince dal/gövde' kalir.
                 bottom_strip = mask[int(h*0.75):, :]
                 l_sum = np.sum(bottom_strip[:, :w//2])
                 r_sum = np.sum(bottom_strip[:, w//2:])
                 
-                # Sola Donen okun govdesi SABITTIR ve SAGDA yer alir. Saga donenin SOLDA yer alir.
                 return 'soladon' if r_sum > l_sum else 'sagadon'
             else:
-                # DUZ SOL ve DUZ SAG Ayrımı:
-                # Duz oklarda okun Sivri Ucu cok ufaktir (az piksel), küt kuyrugu ise buyuktur (cok piksel).
                 left_strip = mask[:, :int(w*0.20)]
                 right_strip = mask[:, -int(w*0.20):]
                 l_sum = np.sum(left_strip)
                 r_sum = np.sum(right_strip)
                 
-                # Kuyruk hangi taraftaysa, ok TAM TERSINE bakar!
                 return 'sol' if r_sum > l_sum else 'sag'
         except Exception as e:
             return name
@@ -346,7 +306,6 @@ class TelloAutonomousApp:
             
             best_det = None
             
-            # [ÖNCELİK] Ateş veya Duman
             if fire_objs:
                 has_fire = any(f[0] == 0 for f in fire_objs)
                 has_smoke = any(f[0] == 1 for f in fire_objs)
@@ -374,16 +333,13 @@ class TelloAutonomousApp:
                     c_name = self.get_corrected_direction(cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY), target_box, target_name)
                     best_det = (c_name, target_box, target_conf)    
 
-            # --- HEDEFE ODAKLAN ---
             if best_det:
                 self.last_seen_time = time.time()
-                # Ateş ve duman için bekleme yerine hemen kilitlen
                 if best_det[0] in ['fire', 'smoke']:
                     self.telemetry['target'] = best_det[0]
                     self.bbox_history.append(best_det[1])
                 else:
                     self.class_history.append(best_det[0])
-                    # Teyit mekanizmasi artik 2 frame (Cok hizli kilit acar)
                     if self.class_history.count(best_det[0]) >= 2:
                         self.telemetry['target'] = best_det[0]
                         self.bbox_history.append(best_det[1])
@@ -399,7 +355,6 @@ class TelloAutonomousApp:
                     self.telemetry['target'] = "NONE"
                     self.bbox_history.clear()
 
-            # --- KONTROL (Sadece Ucarsa) ---
             if not self.is_flying or self.is_busy:
                 time.sleep(0.05); continue
 
@@ -424,34 +379,28 @@ class TelloAutonomousApp:
             if box is not None:
                 cx, cy = (box[0]+box[2])/2, (box[1]+box[3])/2
                 err_x, err_y = cx - self.cfg.MERKEZ_X, cy - self.cfg.MERKEZ_Y
-                bw = box[2] - box[0] # Mevcut kutu genişliği (Mesafe göstergesi)
+                bw = box[2] - box[0]
                 
-                # --- HİZALANMA (Sürekli) ---
                 lr = int(err_x * 0.08)
                 ud = int(-err_y * 0.08)
                 lr = max(-25, min(25, lr))
                 ud = max(-25, min(25, ud))
                 
-                # --- YAKLAŞMA (fb Hesaplama) ---
                 dist_cm = self.telemetry.get('ext_tof', 0) / 10.0
                 
-                # Eğer TOF varsa hassas, yoksa kutu boyutuna göre yaklaş
                 if 10 <= dist_cm < 400:
                     err_dist = dist_cm - self.cfg.HEDEF_IDEAL_MESAFE_CM
                     if err_dist > 10:
                         fb = max(self.cfg.MIN_YAKLASMA_HIZI, min(self.cfg.MAX_YAKLASMA_HIZI, int(err_dist * 0.3)))
                     else:
-                        fb = 0 # İdeal mesafedeyiz
+                        fb = 0
                 else:
-                    # Kutu boyutuna göre FB (Genişlik arttıkça yavaşla)
                     if bw < self.cfg.TETIKLEME_GENISLIK:
                         fb = self.cfg.MAX_YAKLASMA_HIZI - int((bw / self.cfg.TETIKLEME_GENISLIK) * 10)
                         fb = max(self.cfg.MIN_YAKLASMA_HIZI, fb)
                     else:
                         fb = 0
 
-                # --- TETİKLEME (Komut Uygulama Eşiği) ---
-                # Hedef merkezlenmişse ve yeterince yakınsak (veya TOF çok yakınsa)
                 is_centered = abs(err_x) < self.cfg.YATAY_HASSASIYET and abs(err_y) < self.cfg.DIKEY_HASSASIYET
                 is_near = bw >= self.cfg.TETIKLEME_GENISLIK or (0 < dist_cm < self.cfg.HEDEF_IDEAL_MESAFE_CM + 10)
 
@@ -464,11 +413,9 @@ class TelloAutonomousApp:
                     with self.cmd_lock: 
                         self.tello.send_rc_control(int(lr), int(fb), int(ud), 0)
             else:
-                # Hedef yoksa ileri aramaya devam et ("Sürekli İleri" kuralı)
                 if time.time() - self.last_seen_time > self.cfg.TARAMA_BEKLEME:
                     self.state = "SCANNING"
                     self.telemetry['msg'] = "SEARCHING_TARGET..."
-                    # Yavaşça kendi ekseninde dönerek veya ileri giderek ara
                     with self.cmd_lock: self.tello.send_rc_control(0, 0, 0, 15) 
                 else:
                     self.state = "FORWARD_SEARCH"
@@ -507,13 +454,12 @@ class TelloAutonomousApp:
             self.fire_detected = has_fire or has_smoke
             
             if ai_loaded and raw is not None:
-                # Butun hedefleri ince pembe ile isimlendir
                 if ai_res and len(ai_res[0].boxes) > 0:
                     for box in ai_res[0].boxes:
                         x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
                         b_name = self.ai_worker.model.names[int(box.cls[0])]
                         b_conf = float(box.conf[0])
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 255), 2) # Pembeden kutu
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 255), 2)
                         cv2.putText(frame, f"{b_name.upper()} {b_conf:.2f}", (x1, max(20, y1-10)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 255), 2)
                 
                 with self.data_lock:
@@ -527,7 +473,7 @@ class TelloAutonomousApp:
                     cv2.rectangle(frame, (box[0], box[1]), (box[2], box[3]), (0, 255, 0), 3)
 
             for f_cls, f_coord in fire_objs:
-                f_color = (0, 0, 255) if f_cls == 0 else (0, 165, 255) # Kirmizi (Ates) veya Turuncu (Duman)
+                f_color = (0, 0, 255) if f_cls == 0 else (0, 165, 255)
                 cv2.rectangle(frame, (f_coord[0], f_coord[1]), (f_coord[2], f_coord[3]), f_color, 2)
                 label = "FIRE" if f_cls == 0 else "SMOKE"
                 cv2.putText(frame, label, (f_coord[0], f_coord[1]-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, f_color, 1)
@@ -551,7 +497,7 @@ class TelloAutonomousApp:
 
     def execute_command(self, cmd):
         self.is_busy = True
-        self.is_moving = True # [LOCK] Lazer sorgularini dondurur
+        self.is_moving = True
         self.telemetry['msg'] = f"DOING: {cmd.upper()}"
         print(f"[ONAY] Hareket komutu veriliyor: {cmd.upper()}")
         with self.cmd_lock:
