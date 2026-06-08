@@ -99,6 +99,25 @@ class Tello:
         self._send({"type": "flip", "dir": "back"})
         time.sleep(1.5)
 
+    def flip_forward(self):
+        print("[BRIDGE] İleriye takla atılıyor!")
+        self._send({"type": "flip", "dir": "forward"})
+        time.sleep(1.5)
+
+    def flip_left(self):
+        print("[BRIDGE] Sola takla atılıyor!")
+        self._send({"type": "flip", "dir": "left"})
+        time.sleep(1.5)
+
+    def flip_right(self):
+        print("[BRIDGE] Sağa takla atılıyor!")
+        self._send({"type": "flip", "dir": "right"})
+        time.sleep(1.5)
+
+    def stop(self):
+        print("[BRIDGE] Durduruluyor (Hover)...")
+        self.send_rc_control(0,0,0,0)
+
     def send_processed_frame(self, frame):
         """AI tarafından işlenen kareyi Web sitesine gönderir."""
         if self.state.websocket:
@@ -108,17 +127,31 @@ class Tello:
 
     def get_battery(self): return 90
     def get_height(self): return int(self.state.latest_alt * 100) if hasattr(self.state, 'latest_alt') else 0
+    def get_temperature(self): return 45
+    def get_flight_time(self): return int(time.time() - (self.state.takeoff_time if hasattr(self.state, 'takeoff_time') else time.time()))
+
     def get_current_state(self):
         return {
-            'h': int(self.state.latest_alt * 100) if hasattr(self.state, 'latest_alt') else 0, 
+            'h': self.get_height(), 
             'vgx': int(self.state.latest_vx) if hasattr(self.state, 'latest_vx') else 0, 
             'vgy': int(self.state.latest_vy) if hasattr(self.state, 'latest_vy') else 0, 
             'vgz': 0, 
-            'temph': 45, 
-            'bat': 85
+            'temph': self.get_temperature(), 
+            'bat': self.get_battery()
         }
+
     def send_read_command(self, cmd): 
         if "tof" in cmd.lower(): return "700"
+        return "ok"
+
+    def send_command_without_return(self, cmd):
+        if "mled" in cmd or "led" in cmd:
+            self._send({"type": "led_matrix", "cmd": cmd})
+        return True
+
+    def send_command_with_return(self, cmd):
+        if "mled" in cmd or "led" in cmd:
+            self._send({"type": "led_matrix", "cmd": cmd})
         return "ok"
 
     def streamon(self): pass

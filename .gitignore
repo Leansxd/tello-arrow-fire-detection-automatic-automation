@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs and telemetry
+logs/
+
+# Local configuration / IDEs
+.vscode/
+.idea/
