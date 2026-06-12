@@ -7,6 +7,12 @@ import os
 import sys
 import logging
 from collections import deque
+import torch
+
+# Hardware Acceleration Configuration
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+if DEVICE == 'cpu':
+    torch.set_num_threads(2)
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -94,16 +100,18 @@ class AIWorker(threading.Thread):
             return self.result, self.fire_objs, self.fps, self.is_loaded
 
     def run(self):
-        print(f"[AI] ANA MODEL YUKLENIYOR: {self.main_path}")
+        print(f"[AI] ANA MODEL YUKLENIYOR ({DEVICE}): {self.main_path}")
         try:
             self.model = YOLO(self.main_path, task='detect')
+            self.model.to(DEVICE)
             print("[AI] ANA MODEL OK. YANGIN MODELI YUKLENIYOR...")
             self.fire_model = None
             if os.path.exists(self.fire_path):
                 self.fire_model = YOLO(self.fire_path, task='detect')
+                self.fire_model.to(DEVICE)
                 print("[AI] YANGIN MODELI OK.")
             self.is_loaded = True
-            print("[AI] SİSTEM HAZIR. Tüm modeller basariyla yuklendi.")
+            print(f"[AI] SİSTEM HAZIR. Modeller ({DEVICE}) basariyla yuklendi.")
         except Exception as e:
             print(f"[AI] Yukleme hatasi: {e}")
 
@@ -117,11 +125,11 @@ class AIWorker(threading.Thread):
                 self.new_frame_event.clear()
             if img is None: continue
             img = cv2.resize(img, (960, 720))
-            res = self.model.predict(img, verbose=False, conf=DroneConfig.AI_CONF_THRESHOLD, imgsz=DroneConfig.AI_IMG_SIZE)
+            res = self.model.predict(img, verbose=False, conf=DroneConfig.AI_CONF_THRESHOLD, imgsz=DroneConfig.AI_IMG_SIZE, device=DEVICE)
             fires = None
             if self.fire_model and frame_count % 5 == 0:
                 fires = []
-                f_res = self.fire_model.predict(img, verbose=False, conf=DroneConfig.SMOKE_CONF, imgsz=640)
+                f_res = self.fire_model.predict(img, verbose=False, conf=DroneConfig.SMOKE_CONF, imgsz=640, device=DEVICE)
                 for fr in f_res:
                     for b in fr.boxes:
                         cls = int(b.cls[0])
