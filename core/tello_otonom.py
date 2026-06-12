@@ -282,6 +282,11 @@ class OtonomSistem:
         self.telemetry = {'bat': 0, 'h': 0, 'vx': 0, 'vy': 0, 'vz': 0, 'temp': 0, 'target': 'NONE', 'msg': 'INIT...', 'ext_tof': 0, 'tof': 0, 'mled_color': 'OFF'}
         self.fire_detected = False
         
+        # Camera Watchdog variables
+        self.last_frame_hash = None
+        self.last_frame_change_time = time.time()
+        self.last_stream_restart_time = 0
+        
         # Log Ayarları
         self.log_file = None
         if not os.path.exists("logs"): os.makedirs("logs")
@@ -539,6 +544,21 @@ class OtonomSistem:
                     self.is_stream_ok = False
             time.sleep(0.5)
 
+    def restart_stream(self):
+        print("[SYS-WARN] Video stream frozen! Restarting Tello camera stream...")
+        try:
+            with self.cmd_lock:
+                self.tello.streamoff()
+                time.sleep(0.5)
+                self.tello.streamon()
+                time.sleep(0.5)
+            self.frame_read = self.tello.get_frame_read()
+            self.last_frame_change_time = time.time()
+            self.last_frame_hash = None
+            print("[SYS] Video stream restarted successfully.")
+        except Exception as e:
+            print(f"[SYS-ERROR] Failed to restart stream: {e}")
+
     def get_corrected_direction(self, frame, xyxy, name):
         if name in ['sol', 'sag']: return name
         if name not in ['soladon', 'sagadon']: return name
@@ -605,57 +625,78 @@ class OtonomSistem:
             if frame_rgb is None: continue
             self.ai_worker.set_frame(frame_rgb)
             
+            # Watchdog to detect frozen frame
+            sample = frame_rgb[::20, ::20, 0].tobytes()
+            f_hash = hash(sample)
+            if self.last_frame_hash is None or f_hash != self.last_frame_hash:
+                self.last_frame_hash = f_hash
+                self.last_frame_change_time = time.time()
+                
+            is_frozen = (time.time() - self.last_frame_change_time) > 2.5
+            if is_frozen:
+                self.telemetry['msg'] = "CAMERA FROZEN"
+                if time.time() - self.last_stream_restart_time > 8.0:
+                    self.last_stream_restart_time = time.time()
+                    threading.Thread(target=self.restart_stream, daemon=True).start()
+            
             ai_res, fire_objs, ai_fps, ai_loaded = self.ai_worker.get_results()
             gestures = self.ai_worker.gesture_objs
             
-            best_det = None
-            if fire_objs:
-                has_fire = any(f[0] == 0 for f in fire_objs)
-                has_smoke = any(f[0] == 1 for f in fire_objs)
-                fire_objs.sort(key=lambda x: (x[1][2]-x[1][0])*(x[1][3]-x[1][1]), reverse=True)
-                _, f_box = fire_objs[0]
-                if has_fire and has_smoke:
-                    f_name = "fire & smoke"
-                else:
-                    f_name = "fire" if fire_objs[0][0] == 0 else "smoke"
-                best_det = (f_name, f_box, 0.99) 
-            elif gestures:
-                g_name, g_box = gestures[0][2], gestures[0][1]
-                best_det = (g_name, g_box, 0.95)
-            elif ai_res and len(ai_res[0].boxes) > 0:
-                dets = []
-                for box in ai_res[0].boxes:
-                    name = self.ai_worker.model.names[int(box.cls[0])]
-                    if name == 'takla' and float(box.conf[0]) < 0.92: continue
-                    dets.append((name, box.xyxy[0].cpu().numpy(), float(box.conf[0])))
-                if dets:
-                    dets.sort(key=lambda x: (x[1][2]-x[1][0])*(x[1][3]-x[1][1]), reverse=True)
-                    target_name, target_box, target_conf = dets[0][0], dets[0][1], dets[0][2]
-                    c_name = self.get_corrected_direction(cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY), target_box, target_name)
-                    best_det = (c_name, target_box, target_conf)    
-            if best_det:
-                self.last_seen_time = time.time()
-                if best_det[0] in ['fire', 'smoke', 'face']:
-                    self.telemetry['target'] = best_det[0]
-                    self.bbox_history.append(best_det[1])
-                    if time.time() - self.last_seen_time > 5: # 5 saniyede bir sesli uyar
-                        self.speak(f"{best_det[0]} detected")
-                else:
-                    self.class_history.append(best_det[0])
-                    if self.class_history.count(best_det[0]) >= 2:
+            # If camera is frozen and we are already locking/waiting, bypass detection update to keep target
+            if is_frozen and self.state == "WAITING":
+                pass
+            else:
+                best_det = None
+                if is_frozen:
+                    pass
+                elif fire_objs:
+                    has_fire = any(f[0] == 0 for f in fire_objs)
+                    has_smoke = any(f[0] == 1 for f in fire_objs)
+                    fire_objs.sort(key=lambda x: (x[1][2]-x[1][0])*(x[1][3]-x[1][1]), reverse=True)
+                    _, f_box = fire_objs[0]
+                    if has_fire and has_smoke:
+                        f_name = "fire & smoke"
+                    else:
+                        f_name = "fire" if fire_objs[0][0] == 0 else "smoke"
+                    best_det = (f_name, f_box, 0.99) 
+                elif gestures:
+                    g_name, g_box = gestures[0][2], gestures[0][1]
+                    best_det = (g_name, g_box, 0.95)
+                elif ai_res and len(ai_res[0].boxes) > 0:
+                    dets = []
+                    for box in ai_res[0].boxes:
+                        name = self.ai_worker.model.names[int(box.cls[0])]
+                        if name == 'assagi': name = 'asagi'
+                        if name == 'takla' and float(box.conf[0]) < 0.92: continue
+                        dets.append((name, box.xyxy[0].cpu().numpy(), float(box.conf[0])))
+                    if dets:
+                        dets.sort(key=lambda x: (x[1][2]-x[1][0])*(x[1][3]-x[1][1]), reverse=True)
+                        target_name, target_box, target_conf = dets[0][0], dets[0][1], dets[0][2]
+                        c_name = self.get_corrected_direction(cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY), target_box, target_name)
+                        best_det = (c_name, target_box, target_conf)    
+                if best_det:
+                    self.last_seen_time = time.time()
+                    if best_det[0] in ['fire', 'smoke', 'face']:
                         self.telemetry['target'] = best_det[0]
                         self.bbox_history.append(best_det[1])
+                        if time.time() - self.last_seen_time > 5: # 5 saniyede bir sesli uyar
+                            self.speak(f"{best_det[0]} detected")
                     else:
-                        self.state = "EXAMINING"
-                        if self.is_flying and not self.is_busy:
-                            with self.cmd_lock: self.tello.send_rc_control(0,0,0,0)
-                        time.sleep(0.04)
-                        continue
-            else:
-                self.class_history.append(None)
-                if all(x is None for x in self.class_history): 
-                    self.telemetry['target'] = "NONE"
-                    self.bbox_history.clear()
+                        self.class_history.append(best_det[0])
+                        if self.class_history.count(best_det[0]) >= 2:
+                            self.telemetry['target'] = best_det[0]
+                            self.bbox_history.append(best_det[1])
+                        else:
+                            self.state = "EXAMINING"
+                            if self.is_flying and not self.is_busy:
+                                with self.cmd_lock: self.tello.send_rc_control(0,0,0,0)
+                            time.sleep(0.04)
+                            continue
+                else:
+                    self.class_history.append(None)
+                    if all(x is None for x in self.class_history): 
+                        self.telemetry['target'] = "NONE"
+                        self.bbox_history.clear()
             if not self.is_flying or self.is_busy:
                 time.sleep(0.05); continue
             with self.data_lock:

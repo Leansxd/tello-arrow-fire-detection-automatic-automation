@@ -27,8 +27,8 @@ drone_config.LEFT_RIGHT_DISTANCE      = 80
 drone_config.FORWARD_DISTANCE    = 50
 drone_config.BACKWARD_DISTANCE     = 80
 drone_config.TARGET_IDEAL_DISTANCE_CM = 40
-drone_config.UPWARD_DISTANCE   = 80
-drone_config.DOWNWARD_DISTANCE    = 50
+drone_config.UPWARD_DISTANCE   = 50
+drone_config.DOWNWARD_DISTANCE    = 60
 drone_config.ROTATION_ANGLE           = 90
 
 # Drone Speed Settings (Search speed & Centering/PID speed limit)
@@ -48,7 +48,7 @@ tello = drone.tello
 # Scroll the text "EMRULLAH ARSLANTAS" on the screen (unconditional/no function)
 # tello.send_control_command("ext mled s l r 3.0 EMRULLAH ARSLANTAS {EMOJI_SMILE} AMTAL")
 
-tello.send_control_command("ext mled s l r 3.0 GERMANY")
+tello.send_control_command("ext mled s l r 3.0 TOBIAS")
 
 @drone.hedefte("sol")
 def move_left(tello):
