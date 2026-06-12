@@ -23,7 +23,7 @@ EMOJI = "000rr00000r00r0000r00r0000r00r000r0000r00r0000r000r00r00000rr000"
 # --- ADJUSTABLE CONFIGURATIONS (YOU CAN EDIT THESE) ---
 # =====================================================================
 # Flight Distance (cm) and Rotation Angle Settings
-drone_config.LEFT_RIGHT_DISTANCE      = 120
+drone_config.LEFT_RIGHT_DISTANCE      = 180
 drone_config.FORWARD_DISTANCE    = 50
 drone_config.BACKWARD_DISTANCE     = 80
 drone_config.TARGET_IDEAL_DISTANCE_CM = 40
@@ -35,10 +35,10 @@ drone_config.ROTATION_ANGLE           = 90
 drone_config.SEARCH_SPEED            = 30
 drone_config.ALIGNMENT_SPEED_LIMIT   = 30
 
-# Centering Precision & Locking Settings (Higher sensitivity = locks faster without centering too much)
-drone_config.HORIZONTAL_SENSITIVITY      = 150  # Horizontal centering tolerance (pixels)
-drone_config.VERTICAL_SENSITIVITY      = 150  # Vertical centering tolerance (pixels)
-drone_config.LOCK_DURATION     = 0.5  # Seconds to wait/stay aligned before executing action
+# Centering Precision & Locking Settings (Lower tolerance = centers more precisely before executing action)
+drone_config.HORIZONTAL_SENSITIVITY      = 80  # Horizontal centering tolerance (pixels)
+drone_config.VERTICAL_SENSITIVITY      = 80  # Vertical centering tolerance (pixels)
+drone_config.LOCK_DURATION     = 0.8  # Seconds to wait/stay aligned before executing action
 
 # =====================================================================
 
