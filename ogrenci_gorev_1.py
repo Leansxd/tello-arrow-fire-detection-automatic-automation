@@ -36,8 +36,8 @@ drone_config.SEARCH_SPEED            = 30
 drone_config.ALIGNMENT_SPEED_LIMIT   = 30
 
 # Centering Precision & Locking Settings (Lower tolerance = centers more precisely before executing action)
-drone_config.HORIZONTAL_SENSITIVITY      = 80  # Horizontal centering tolerance (pixels)
-drone_config.VERTICAL_SENSITIVITY      = 80  # Vertical centering tolerance (pixels)
+drone_config.HORIZONTAL_SENSITIVITY      = 110  # Horizontal centering tolerance (pixels)
+drone_config.VERTICAL_SENSITIVITY      = 110  # Vertical centering tolerance (pixels)
 drone_config.LOCK_DURATION     = 0.8  # Seconds to wait/stay aligned before executing action
 
 # =====================================================================

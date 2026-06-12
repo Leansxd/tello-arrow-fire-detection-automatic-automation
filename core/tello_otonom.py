@@ -286,8 +286,8 @@ class OtonomSistem:
         self.frame_read = None
         self.bbox_history = deque(maxlen=3)
         self.class_history = deque(maxlen=3)
-        self.pid_x = PID(0.04, 0.0, 0.02)
-        self.pid_y = PID(0.05, 0.0, 0.02)
+        self.pid_x = PID(0.08, 0.001, 0.03)
+        self.pid_y = PID(0.09, 0.001, 0.03)
         self.last_seen_time = time.time()
         self.wait_start_time = 0
         self.cmd_lock = threading.RLock()
@@ -791,6 +791,12 @@ class OtonomSistem:
                         lr = max(-limit, min(limit, lr))
                         ud = max(-limit, min(limit, ud))
                         
+                        # Tello donanım ölü bölgesini (deadband) aşmak için hızları destekle
+                        if lr != 0 and abs(lr) < 10:
+                            lr = 10 if lr > 0 else -10
+                        if ud != 0 and abs(ud) < 10:
+                            ud = 10 if ud > 0 else -10
+                        
                         fb = 0
                         if not SIMULATION and (10 <= dist_cm < 300):
                             err_dist = dist_cm - self.cfg.TARGET_IDEAL_DISTANCE_CM
@@ -801,6 +807,10 @@ class OtonomSistem:
                         else:
                             if bw < IDEAL_BW_MIN: fb = int(limit * 0.8)
                             elif bw > IDEAL_BW_MAX: fb = -int(limit * 0.8)
+                            
+                        if fb != 0 and abs(fb) < 10:
+                            fb = 10 if fb > 0 else -10
+                            
                         with self.cmd_lock: self.tello.send_rc_control(int(lr), int(fb), int(ud), 0)
             else:
                 if time.time() - self.last_seen_time > self.cfg.SCAN_WAIT:
