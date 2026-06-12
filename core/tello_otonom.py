@@ -256,6 +256,8 @@ class OtonomSistem:
         orig_send_control_command = self.tello.send_control_command
         def safe_send_control_command(command, *args, **kwargs):
             command = self._normalize_mled_command(command)
+            if command.startswith("EXT") and not getattr(self, 'mled_supported', True):
+                return "error"
             if "mled" in command.lower():
                 self.tello.buffered_control_command = command
                 # Eğer bağlı değilsek sadece tamponda tutalım, hata vermeyelim
@@ -263,6 +265,10 @@ class OtonomSistem:
                     print(f"[SYS] Matrix komutu bağlantı kurulana kadar tamponlandı: {command}")
                     return "ok"
             try:
+                try:
+                    self.tello.get_own_udp_object()['responses'].clear()
+                except Exception:
+                    pass
                 with self.cmd_lock:
                     return orig_send_control_command(command, *args, **kwargs)
             except Exception as e:
@@ -289,6 +295,7 @@ class OtonomSistem:
         self.state = "SEARCHING"
         self.telemetry = {'bat': 0, 'h': 0, 'vx': 0, 'vy': 0, 'vz': 0, 'temp': 0, 'target': 'NONE', 'msg': 'INIT...', 'ext_tof': 0, 'tof': 0, 'mled_color': 'OFF'}
         self.fire_detected = False
+        self.mled_supported = True
         
         # Camera Watchdog variables
         self.last_frame_hash = None
@@ -355,7 +362,7 @@ class OtonomSistem:
         print("[SYS] Matrix LED Worker Baslatildi.")
         son_durum = None # "YAKIN" veya "UZAK"
         while self.running:
-            if self.is_connected:
+            if self.is_connected and getattr(self, 'mled_supported', True):
                 try:
                     with self.data_lock:
                         tof = self.telemetry.get('tof', 0)
@@ -385,7 +392,7 @@ class OtonomSistem:
     def mled_cycle_worker(self):
         print("[SYS] Matrix LED Döngü Çalışanı Başlatıldı.")
         while self.running:
-            if self.is_connected:
+            if self.is_connected and getattr(self, 'mled_supported', True):
                 try:
                     # Eğer djitellopy Tello nesnesinde tamponlanmış komut varsa onu öncelikli gönder
                     buffered_cmd = getattr(self.tello, 'buffered_control_command', None)
@@ -539,6 +546,20 @@ class OtonomSistem:
                     self.tello.streamon()
                     self.frame_read = self.tello.get_frame_read()
                     print("[CONN] Drone baglandi.")
+                    
+                    # Test if Tello Talent (EXT) commands are supported
+                    try:
+                        self.tello.get_own_udp_object()['responses'].clear()
+                        test_resp = self.tello.send_control_command("EXT led 0 0 0")
+                        if test_resp and ("unknown command" in test_resp.lower() or "error" in test_resp.lower()):
+                            self.mled_supported = False
+                            print("[SYS] Tello Talent (EXT) commands are NOT supported. Standard Tello mode active.")
+                        else:
+                            self.mled_supported = True
+                            print("[SYS] Tello Talent (EXT) commands are supported and active.")
+                    except Exception as e:
+                        self.mled_supported = False
+                        print(f"[SYS] EXT test failed, disabling MLED: {e}")
                 except:
                     self.telemetry['msg'] = "WI-FI KONTROL ET!"
                     time.sleep(2.0); continue
