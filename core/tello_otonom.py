@@ -753,8 +753,8 @@ class OtonomSistem:
                 bw = box[2]-box[0]
                 is_close_enough = False
                 
-                IDEAL_BW_MIN = 180
-                IDEAL_BW_MAX = 450
+                IDEAL_BW_MIN = self.cfg.MIN_BOX_WIDTH if getattr(self.cfg, 'MIN_BOX_WIDTH', 0) > 0 else 120
+                IDEAL_BW_MAX = self.cfg.MAX_BOX_WIDTH if getattr(self.cfg, 'MAX_BOX_WIDTH', 0) > 0 else 450
                 
                 if not SIMULATION and (10 <= dist_cm < 300):
                     err_dist = dist_cm - self.cfg.TARGET_IDEAL_DISTANCE_CM
